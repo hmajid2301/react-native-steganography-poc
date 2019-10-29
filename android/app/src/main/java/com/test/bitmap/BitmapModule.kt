@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Environment
+import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -13,46 +14,6 @@ import com.facebook.react.bridge.WritableNativeArray
 import java.io.File
 import java.io.FileOutputStream
 import java.lang.System
-// public class BitmapModule extends ReactContextBaseJavaModule {
-//     private static ReactApplicationContext reactContext;
-
-//     public BitmapModule(ReactApplicationContext context) {
-//         super(context);
-//         reactContext = context;
-//     }
-
-//         @Override
-//     public String getName() {
-//         return "Bitmap";
-//     }
-
-//     @ReactMethod
-//     public void getPixels(String filePath, final Promise promise) {
-//         try {
-//             WritableNativeArray pixels = new WritableNativeArray();
-//             Bitmap bitmap = BitmapFactory.decodeFile(filePath);
-
-//             if (bitmap == null) {
-//                 promise.reject("Failed to decode. Path is incorrect or image is corrupted");
-//                 return;
-//             }
-
-//             int width = bitmap.getWidth();
-//             int height = bitmap.getHeight();
-
-//             for (int x = 0; x < width; x++) {
-//                 for (int y = 0; y < height; y++) {
-//                     int color = bitmap.getPixel(x, y);
-//                     pixels.pushString(Integer.toBinaryString(color));
-//                 }
-//             }
-//             promise.resolve(pixels);
-//         } catch (Exception e) {
-//             promise.reject(e);
-//         }
-//     }
-
-// }
 
 class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
@@ -77,8 +38,6 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
             for (x in 0 until width) {
                 for (y in 0 until height) {
                     val color = bitmap.getPixel(x, y)
-
-                    pixels.pushInt(Color.alpha(color))
                     pixels.pushInt(Color.red(color))
                     pixels.pushInt(Color.green(color))
                     pixels.pushInt(Color.blue(color))
@@ -105,25 +64,35 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                 }
             }
 
+            for (x in 0 until width) {
+                for (y in 0 until height) {
+                    if (x < 5 && y < 5) {
+                        val color = bitmap.getPixel(x, y)
+                        Log.v("R", Color.red(color).toString())
+                        Log.v("G", Color.green(color).toString())
+                        Log.v("B", Color.blue(color).toString())
+                    }
+                }
+            }
+
+
             val date = System.currentTimeMillis()
             val fname = "$date.png"
             val file = File(myDir, fname)
             val out = FileOutputStream(file)
-
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             out.flush()
             out.close()
-            promise.resolve(true)
+            promise.resolve("$myDir/$fname")
         } catch (e: Exception) {
             promise.reject(e)
         }
     }
 
     fun convertPixelsToColor(pixels: ReadableArray): IntArray {
-        val colors: IntArray = IntArray(pixels.size().div(4))
+        val colors: IntArray = IntArray(pixels.size().div(3))
         for (x in 0 until colors.size) {
-            val temp = Color.argb(pixels.getInt(x * 4), pixels.getInt(x * 4 + 1), pixels.getInt(x *4 + 2), pixels.getInt(x * 4 + 3))
-            colors[x] = temp
+            colors[x] = Color.argb(255, pixels.getInt(x * 3), pixels.getInt(x * 3 + 1), pixels.getInt(x * 3 + 2))
         }
 
         return colors

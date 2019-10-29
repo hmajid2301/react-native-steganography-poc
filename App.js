@@ -9,13 +9,13 @@
 import React from 'react';
 import {View} from 'react-native';
 
-import Bitmap from './src/Bitmap';
+import Steg from './src/Steg';
 
 class App extends React.Component {
   render() {
     return (
       <View style={{flex: 1}}>
-        <Bitmap />
+        <Steg />
       </View>
     );
   }

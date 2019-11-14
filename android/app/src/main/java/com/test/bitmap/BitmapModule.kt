@@ -1,28 +1,27 @@
 package com.test.bitmap
 
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 import android.graphics.Color
-import android.os.Environment
 import android.util.Log
+import android.os.Environment
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.WritableNativeArray
+import java.lang.Math
 import java.io.File
 import java.io.FileOutputStream
-import java.lang.System
 
 class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
-
     override fun getName(): String {
         return "Bitmap"
     }
 
     @ReactMethod
-    fun getPixels(filePath: String, promise: Promise) {
+    fun getPixels(filePath: String, bitsRequired: Int, promise: Promise) {
         try {
             val pixels = WritableNativeArray()
             val bitmap = BitmapFactory.decodeFile(filePath)
@@ -32,11 +31,15 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                 return
             }
 
+            val pixelsRequired = Math.ceil(bitsRequired / 3.0).toInt()
             val width = bitmap.getWidth()
             val height = bitmap.getHeight()
 
-            for (x in 0 until width) {
-                for (y in 0 until height) {
+            val requiredWidth = pixelsRequired % width
+            val requiredHeight = pixelsRequired.div(height) + 1
+
+            for (x in 0 until requiredWidth) {
+                for (y in 0 until requiredHeight) {
                     val color = bitmap.getPixel(x, y)
                     pixels.pushInt(Color.red(color))
                     pixels.pushInt(Color.green(color))
@@ -51,36 +54,23 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     }
 
     @ReactMethod
-    fun setPixels(pixels: ReadableArray, width: Int, height: Int, promise: Promise) {
+    fun setPixels(filePath: String, pixels: ReadableArray, promise: Promise) {
         try {
-            val colors = convertPixelsToColor(pixels)
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            bitmap.setPixels(colors, 0, width, 0, 0, width, height)
+            val bitmap = convertPixelsToColor(filePath, pixels)
 
-            val myDir = File(Environment.getExternalStorageDirectory(), "Stegappasaurus")
+            val myDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Stegappasaurus")
             if (!myDir.exists()) {
                 if (!myDir.mkdirs()) {
                     promise.reject("failed_create_folder", "failed to create directory")
                 }
             }
 
-            for (x in 0 until width) {
-                for (y in 0 until height) {
-                    if (x < 5 && y < 5) {
-                        val color = bitmap.getPixel(x, y)
-                        Log.v("R", Color.red(color).toString())
-                        Log.v("G", Color.green(color).toString())
-                        Log.v("B", Color.blue(color).toString())
-                    }
-                }
-            }
-
-
             val date = System.currentTimeMillis()
             val fname = "$date.png"
             val file = File(myDir, fname)
             val out = FileOutputStream(file)
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+
             out.flush()
             out.close()
             promise.resolve("$myDir/$fname")
@@ -89,12 +79,21 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
         }
     }
 
-    fun convertPixelsToColor(pixels: ReadableArray): IntArray {
-        val colors: IntArray = IntArray(pixels.size().div(3))
-        for (x in 0 until colors.size) {
-            colors[x] = Color.argb(255, pixels.getInt(x * 3), pixels.getInt(x * 3 + 1), pixels.getInt(x * 3 + 2))
+    fun convertPixelsToColor(filePath: String, pixels: ReadableArray): Bitmap {
+        val opt = BitmapFactory.Options();
+        opt.inMutable = true;
+        val bitmap = BitmapFactory.decodeFile(filePath, opt)
+
+        val width = bitmap.getWidth()
+        val height = bitmap.getHeight()
+        val pixelsRequired = pixels.size().div(3)
+        for (i in 0 until pixelsRequired) {
+            val color = Color.argb(255, pixels.getInt(i * 3), pixels.getInt(i * 3 + 1), pixels.getInt(i * 3 + 2))
+            val x = i % width 
+            val y = i.toInt().div(height)
+            bitmap.setPixel(x, y, color)
         }
 
-        return colors
+        return bitmap
     }
 }

@@ -21,7 +21,6 @@ export default class DecodeLSB {
     const messageLength = this.getMessageLength(imageData);
     const binaryMessage: string[] = [];
 
-    // console.log('Data', imageData, startDecodingAt);
     for (let i = 0; i < messageLength; i += 1) {
       const byte = this.decodeNextByte(imageData);
       binaryMessage.push(byte);

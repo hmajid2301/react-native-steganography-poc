@@ -1,26 +1,22 @@
 import React from 'react';
-import {View} from 'react-native';
+import {Image, View} from 'react-native';
 import Steganography from '../Steganography/Steganography';
-import Canvas from 'react-native-canvas';
+import ImagePicker from 'react-native-image-picker';
 
 import 'react-native-console-time-polyfill';
 
 export default class Steg extends React.Component {
-  async encode(canvas) {
-    const steganography = new Steganography(canvas, '', 128, 128);
-    // const timer = setInterval(() => {
-    //   console.log(steganography.getProgress());
-    // }, 100);
-    const encodedImage = await steganography.encode('Test Message');
-    const decode = await steganography.decode();
-    // clearInterval(timer);
+  async componentDidMount() {
+    ImagePicker.launchImageLibrary({}, async response => {
+      let steganography = new Steganography(response.path);
+      const encodedImage = await steganography.encode('Test Message');
+      steganography = new Steganography(encodedImage);
+      const decodedMessage = await steganography.decode();
+      console.log(decodedMessage);
+    });
   }
 
   render() {
-    return (
-      <View style={{flex: 1}}>
-        <Canvas ref={this.encode} />
-      </View>
-    );
+    return <View style={{flex: 1}}></View>;
   }
 }

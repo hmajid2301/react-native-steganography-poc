@@ -8,7 +8,8 @@ import 'react-native-console-time-polyfill';
 export default class Steg extends React.Component {
   async componentDidMount() {
     ImagePicker.launchImageLibrary({}, async response => {
-      let steganography = new Steganography(response.path);
+      console.log(response.uri);
+      let steganography = new Steganography(response.uri);
       const encodedImage = await steganography.encode('Test Message');
       steganography = new Steganography(encodedImage);
       const decodedMessage = await steganography.decode();

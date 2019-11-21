@@ -1,19 +1,24 @@
 package com.test.bitmap
 
-import android.graphics.BitmapFactory
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.util.Log
+import android.graphics.ImageDecoder
+import android.net.Uri
 import android.os.Environment
+import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.WritableNativeArray
-import java.lang.Math
 import java.io.File
 import java.io.FileOutputStream
+import java.lang.Math
+import java.net.URLConnection
+import java.io.FileInputStream
+import android.provider.MediaStore
 
 class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
     override fun getName(): String {
@@ -23,14 +28,8 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     @ReactMethod
     fun getPixels(filePath: String, bitsRequired: Int, promise: Promise) {
         try {
-            val pixels = WritableNativeArray()
-            val bitmap = BitmapFactory.decodeFile(filePath)
 
-            if (bitmap == null) {
-                promise.reject("invalid_image", "Failed to decode. Path is incorrect or image is corrupted")
-                return
-            }
-
+            val bitmap = this.getBitmap(filePath)
             val pixelsRequired = Math.ceil(bitsRequired / 3.0).toInt()
             val width = bitmap.getWidth()
             val height = bitmap.getHeight()
@@ -38,6 +37,7 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
             val requiredWidth = pixelsRequired % width
             val requiredHeight = pixelsRequired.div(height) + 1
 
+            val pixels = WritableNativeArray()
             for (x in 0 until requiredWidth) {
                 for (y in 0 until requiredHeight) {
                     val color = bitmap.getPixel(x, y)
@@ -56,7 +56,18 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     @ReactMethod
     fun setPixels(filePath: String, pixels: ReadableArray, promise: Promise) {
         try {
-            val bitmap = convertPixelsToColor(filePath, pixels)
+
+            val bitmap = this.getBitmap(filePath)
+            val width = bitmap.getWidth()
+            val height = bitmap.getHeight()
+            val pixelsRequired = pixels.size().div(3)
+
+            for (i in 0 until pixelsRequired) {
+                val color = Color.argb(255, pixels.getInt(i * 3), pixels.getInt(i * 3 + 1), pixels.getInt(i * 3 + 2))
+                val x = i % width
+                val y = i.toInt().div(height)
+                bitmap.setPixel(x, y, color)
+            }
 
             val myDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Stegappasaurus")
             if (!myDir.exists()) {
@@ -73,25 +84,28 @@ class BitmapModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
 
             out.flush()
             out.close()
-            promise.resolve("$myDir/$fname")
+            val uri = Uri.fromFile(file)
+            promise.resolve(uri.toString())
         } catch (e: Exception) {
             promise.reject(e)
         }
     }
 
-    fun convertPixelsToColor(filePath: String, pixels: ReadableArray): Bitmap {
-        val opt = BitmapFactory.Options();
-        opt.inMutable = true;
-        val bitmap = BitmapFactory.decodeFile(filePath, opt)
+    fun getBitmap(filePath: String): Bitmap {
+        val context = getReactApplicationContext()
+        val cr = context.getContentResolver()
+        val uri = Uri.parse(filePath)
 
-        val width = bitmap.getWidth()
-        val height = bitmap.getHeight()
-        val pixelsRequired = pixels.size().div(3)
-        for (i in 0 until pixelsRequired) {
-            val color = Color.argb(255, pixels.getInt(i * 3), pixels.getInt(i * 3 + 1), pixels.getInt(i * 3 + 2))
-            val x = i % width 
-            val y = i.toInt().div(height)
-            bitmap.setPixel(x, y, color)
+        val bitmap: Bitmap
+        if (android.os.Build.VERSION.SDK_INT >= 28){
+            val source = ImageDecoder.createSource(cr, uri)
+            val onHeaderListener = ImageDecoder.OnHeaderDecodedListener { decoder, info, source ->
+                decoder.setMutableRequired(true)
+            }
+            bitmap = ImageDecoder.decodeBitmap(source, onHeaderListener)
+        }
+        else {
+            bitmap = MediaStore.Images.Media.getBitmap(cr, uri)
         }
 
         return bitmap
